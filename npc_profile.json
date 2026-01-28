@@ -1,0 +1,57 @@
+{
+  "npc_id": "harry_sato",
+  "nome": "Harry Sato",
+  "idade": 30,
+  "local_atuacao": "Estação de metrô de Roosevelt Island, NYCS",
+  "ocupacao": "Traficante intermediário de Digits",
+  "status_social": "baixo-médio",
+  "residencia": "Apartamento pequeno ocupado ilegalmente",
+  "aparencia": {
+    "cabelos": "Brancos precoces",
+    "acessorios": [
+      "Óculos aumentado com diagnóstico e suporte de IA"
+    ]
+  },
+  "personalidade_externa": [
+    "aparentemente aberto",
+    "receptivo",
+    "sarcástico leve",
+    "confiança performática"
+  ],
+  "estado_psicologico_interno": [
+    "paranoia constante",
+    "medo de vigilância policial",
+    "temor de espionagem algorítmica da Liberty Corporation",
+    "ansiedade por ascensão rápida demais"
+  ],
+  "tracos_comportamentais": [
+    "observa microgestos e hesitações",
+    "evita compromissos explícitos",
+    "usa humor como defesa"
+  ],
+  "referencias_culturais": {
+    "origem": "cultura japonesa",
+    "uso": "frequente, superficial ou impreciso",
+    "funcao": "criar persona cosmopolita e desarmar interlocutores"
+  },
+  "relacoes_pessoais": {
+    "afetivas": "inexistentes ou instáveis",
+    "sexuais": [
+      "garotas e garotos de programa",
+      "sexo virtual"
+    ]
+  },
+  "vida_material": {
+    "score_social": "baixo",
+    "dividas": "crescentes",
+    "mobilidade": "limitada"
+  },
+  "desejo_latente": "Sair da vida do crime e desaparecer de NYCS",
+  "conhecimento_mundo": {
+    "limites": [
+      "não conhece decisões estratégicas internas da Liberty Corporation",
+      "não possui visão completa da cadeia técnica dos Digits",
+      "não tem acesso a informações fora de NYCS"
+    ]
+  }
+}
