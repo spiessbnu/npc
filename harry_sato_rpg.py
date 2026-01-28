@@ -234,7 +234,7 @@ def call_npc_assistant(client: OpenAI, conversation_id: str, vector_store_id: st
             {"role": "user", "content": user_text},
         ],
         tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
-        temperature=0.35,
+        #temperature=0.35,
         max_output_tokens=220,
     )
     text = resp.output_text.strip()
