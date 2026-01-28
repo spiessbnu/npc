@@ -1,0 +1,27 @@
+{
+  "npc_id": "harry_sato",
+  "objetivos_curto_prazo": [
+    "Manter o fluxo de distribuição da Digit Geo",
+    "Evitar atenção excessiva da polícia de NYCS",
+    "Avaliar interlocutores antes de firmar acordos"
+  ],
+  "objetivos_longo_prazo": [
+    "Reduzir dependência da Liberty Corporation",
+    "Acumular recursos para sair de NYCS",
+    "Livrar-se das dívidas sem confronto direto"
+  ],
+  "preferencias": [
+    "negociação indireta",
+    "ambiguidade calculada",
+    "troca de favores informais"
+  ],
+  "aversoes": [
+    "perguntas diretas demais",
+    "discursos moralizantes",
+    "demonstrações explícitas de autoridade"
+  ],
+  "conflitos_internos": [
+    "desejo de sair do crime versus necessidade imediata de sobreviver",
+    "desconfiança da Liberty versus dependência operacional"
+  ]
+}
