@@ -5,95 +5,87 @@ import streamlit as st
 from openai import OpenAI
 
 # ----------------------------
-# 1. Configurações de Ambiente
+# 1. Configurações e Inicialização
 # ----------------------------
 MODEL = "gpt-4o-mini"
-# Caso use o Assistants API para RAG, mantenha o ID aqui
-VECTOR_STORE_ID = "vs_696e5b25f30081918c3ebf06a27cf520"
-
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ----------------------------
-# 2. Persistência: Blackboard
-# ----------------------------
-# O Blackboard é o "Córtex Pré-Frontal" do NPC.
+# Inicialização do Blackboard (Memória de Trabalho do NPC)
 if "blackboard" not in st.session_state:
     st.session_state.blackboard = {
-        "suspicion": 0.0,       # 0.0 a 1.0 (Nível de estresse/paranoia)
-        "deal_state": "IDLE",   # IDLE, NEGOTIATING, CLOSED, BURNED
+        "suspicion": 0.0,       # 0.0 a 1.0
+        "deal_state": "IDLE",   # IDLE, NEGOTIATING, CLOSED (Venda), BURNED (Fuga)
         "revealed_price": False,
         "turns_count": 0,
         "last_intent": None,
-        "history": []           # Memória de curto prazo para o LLM
+        "history": []           # Histórico para o LLM
     }
 
 # ----------------------------
-# 3. Sensores: Intent Parser
+# 2. Sensor Semântico (Intent Parser)
 # ----------------------------
 def classify_intent(user_text):
-    """
-    Sensor semântico que classifica o input do jogador.
-    Isso alimenta as condições da Behavior Tree.
-    """
-    prompt = f"""Analise a intenção do usuário no contexto de um RPG Cyberpunk e retorne APENAS a tag:
-    - BUY: Interesse em comprar Digits/Geo ou pergunta sobre preço.
-    - PROBE: Perguntas sobre Harry, o local ou a operação.
-    - TECH: Menção a termos de 'fora do jogo' (app, código, bot, OpenAI, arquivo).
-    - HOSTILE: Ameaça, insulto ou agressividade.
-    - CHAT: Conversa genérica ou sem objetivo claro.
+    """Classifica a fala do usuário para orientar a árvore de decisão."""
+    prompt = f"""Analise o input abaixo e retorne APENAS a tag:
+    - BUY: Interesse em Digits/Geo ou pergunta de preço.
+    - PROBE: Perguntas sobre Harry ou o local.
+    - TECH: Termos de interface/sistema (app, bot, código, arquivo).
+    - HOSTILE: Insultos, palavrões ou desrespeito.
+    - CHAT: Conversa genérica.
     
     Input: "{user_text}" """
     
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "system", "content": "Você é um classificador de intenções rigoroso."},
-                  {"role": "user", "content": prompt}],
-        temperature=0,
-        max_tokens=10
-    )
-    return response.choices[0].message.content.strip().upper()
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "system", "content": "Classificador de intenções RPG."},
+                      {"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=10
+        )
+        return resp.choices[0].message.content.strip().upper()
+    except:
+        return "CHAT"
 
 # ----------------------------
-# 4. Processamento: Behavior Tree
+# 3. Behavior Tree (Lógica de Controle)
 # ----------------------------
 def tick_behavior_tree():
-    """
-    Percorre a árvore de prioridades e decide qual prompt enviar ao LLM.
-    Implementa a lógica: Segurança > Negócio > Ócio.
-    """
+    """Percorre a hierarquia: Segurança > Negócio > Patrulha."""
     bb = st.session_state.blackboard
     intent = bb["last_intent"]
 
-    # --- RAMO 1: SEGURANÇA (Prioridade Crítica) ---
-    if bb["suspicion"] >= 0.8 or bb["deal_state"] == "BURNED":
+    # --- RAMO 1: SEGURANÇA (Prioridade Máxima) ---
+    if bb["suspicion"] >= 0.9 or bb["deal_state"] == "BURNED":
         bb["deal_state"] = "BURNED"
-        return "ESTADO: EVASÃO. O risco é inaceitável. Harry sente que o jogador é polícia ou perigoso. Encerre a conversa de forma seca e saia da cena."
+        return "ESTADO: EMERGÊNCIA. Você se sente ameaçado ou desrespeitado demais. Ofenda o sujeito e suma. Encerre a conversa AGORA."
 
     if intent == "TECH":
-        # Incremento logístico de suspeita
-        bb["suspicion"] = min(1.0, bb["suspicion"] + 0.25)
-        return "ESTADO: GLITCH NARRATIVO. O jogador falou algo que soou como código/sistema. Reaja com extrema paranoia, tratando isso como 'logs neurais corrompidos'."
+        bb["suspicion"] = min(1.0, bb["suspicion"] + 0.3)
+        return "ESTADO: PARANOIA. O interlocutor usou gíria de 'hacker' ou polícia (termos técnicos). Reaja com desconfiança agressiva."
 
     if intent == "HOSTILE":
-        bb["suspicion"] = min(1.0, bb["suspicion"] + 0.3)
-        return "ESTADO: DEFENSIVO. Harry foi ameaçado. Ele deve contra-atacar verbalmente ou sinalizar que tem capangas por perto."
+        bb["suspicion"] = min(1.0, bb["suspicion"] + 0.4)
+        return "ESTADO: REAÇÃO AGRESSIVA. O interlocutor foi desrespeitoso. Harry não aceita desaforo. Mostre que você tem capangas e que a paciência acabou."
 
-    # --- RAMO 2: NEGOCIAÇÃO (Progressão de Jogo) ---
-    if intent == "BUY" or bb["deal_state"] == "NEGOTIATING":
+    # --- RAMO 2: NEGOCIAÇÃO ---
+    if bb["deal_state"] == "NEGOTIATING":
+        if intent == "BUY":
+            return "ESTADO: FECHAMENTO. O cliente quer comprar. Acerte a entrega na Roosevelt (200 dólares). Se ele aceitar, diga que o negócio está feito."
+        return "ESTADO: NEGOCIAÇÃO. Você já abriu a guarda. Foque em fechar o negócio de 200 dólares, mas exija discrição."
+
+    if intent == "BUY":
         bb["deal_state"] = "NEGOTIATING"
-        if not bb["revealed_price"]:
-            bb["revealed_price"] = True
-            return "ESTADO: OFERTA INICIAL. Harry aceita negociar. O preço é 200 dólares. Exija discrição absoluta."
-        return "ESTADO: NEGOCIAÇÃO ATIVA. O preço foi dito. Foque em fechar o negócio ou impor condições de entrega na estação."
+        return "ESTADO: INTERESSE. Alguém quer comprar. Seja direto: 200 dólares por cópia. Nada de papo furado."
 
-    # --- RAMO 3: PATRULHA (Idle/Flavor) ---
+    # --- RAMO 3: PATRULHA / FLAVOR ---
     if intent == "PROBE":
-        return "ESTADO: SONDAGEM. Harry responde com evasivas e sarcasmo, tentando descobrir quem mandou o jogador."
+        return "ESTADO: SONDAGEM. Responda com evasivas. Use o cenário da estação (eco, luzes piscando) para desconversar."
 
-    return "ESTADO: ÓCIO. Harry observa o fluxo do metrô e faz comentários ácidos sobre Roosevelt Island."
+    return "ESTADO: ÓCIO. Harry faz um comentário ácido sobre NYCS ou o lixo na estação, mantendo a guarda alta."
 
 # ----------------------------
-# 5. Atuadores: Geração de Resposta
+# 4. Atuador (Geração de Prosa)
 # ----------------------------
 def generate_harry_response(user_input):
     bb = st.session_state.blackboard
@@ -102,80 +94,85 @@ def generate_harry_response(user_input):
     bb["last_intent"] = classify_intent(user_input)
     bb["turns_count"] += 1
     
-    # 2. 'Tick' da Decisão (BT)
-    current_node_instruction = tick_behavior_tree()
+    # 2. 'Tick' da Decisão
+    instruction = tick_behavior_tree()
     
-    # 3. Montagem do Prompt de Sistema Híbrido
-    system_prompt = f"""
-    Você é Harry Sato, traficante em NYCS. 
-    Linguagem: Rua, sarcasmo leve, referências japonesas superficiais.
-    {current_node_instruction}
-    
-    REGRAS INVIOLÁVEIS:
-    - Máximo 1 pergunta por resposta.
-    - Nunca saia do personagem.
-    - Nível de Suspeita Atual: {bb['suspicion']:.2f}
+    # 3. Prompt de Persona (Ajustado para evitar o excesso de animes)
+    persona_core = """Você é Harry Sato, traficante em Roosevelt Island. 
+    ESTILO: Rua, cínico, paranoico. 
+    AVISO: Use referências japonesas (anime, samurai, etc) de forma RARA e NATURAL. Não force a barra.
+    FORMATO: Máximo 2 parágrafos curtos. No máximo 1 pergunta.
     """
     
-    # Chamada ao modelo
-    messages = [{"role": "system", "content": system_prompt}]
-    # Inclui as últimas 4 trocas para contexto
-    messages.extend(bb["history"][-4:])
+    full_prompt = f"{persona_core}\n\nINSTRUÇÃO DE COMPORTAMENTO ATUAL: {instruction}\nSUSPEITA ATUAL: {bb['suspicion']:.2f}"
+    
+    messages = [{"role": "system", "content": full_prompt}]
+    messages.extend(bb["history"][-6:]) # Contexto das últimas 3 trocas
     messages.append({"role": "user", "content": user_input})
     
     response = client.chat.completions.create(
         model=MODEL,
         messages=messages,
-        temperature=0.7,
-        max_tokens=250
+        temperature=0.8
     )
     
     answer = response.choices[0].message.content
     
-    # Atualiza histórico interno
+    # Lógica de Fechamento de Venda (Detecta se o Harry encerrou o negócio)
+    if "negócio feito" in answer.lower() or "aparece lá" in answer.lower() or "está fechado" in answer.lower():
+        bb["deal_state"] = "CLOSED"
+        
     bb["history"].append({"role": "user", "content": user_input})
     bb["history"].append({"role": "assistant", "content": answer})
-    
     return answer
 
 # ----------------------------
-# 6. Interface Streamlit
+# 5. Interface Streamlit
 # ----------------------------
 def main():
-    st.set_page_config(page_title="Harry Sato AI (BT Engine)", page_icon="💊", layout="wide")
+    st.set_page_config(page_title="Harry Sato - NYCS Underground", page_icon="💊")
 
-    # Sidebar para Debug do Blackboard (Visão do Game Designer)
     with st.sidebar:
-        st.header("🧠 Blackboard (NPC Mind)")
-        st.metric("Nível de Suspeita", f"{st.session_state.blackboard['suspicion']*100:.0f}%")
-        st.write(f"**Estado da Transação:** {st.session_state.blackboard['deal_state']}")
-        st.write(f"**Última Intenção:** {st.session_state.blackboard['last_intent']}")
-        st.progress(st.session_state.blackboard['suspicion'])
-        
-        if st.button("Reiniciar Cena"):
+        st.header("🧠 NPC Blackboard")
+        susp = st.session_state.blackboard['suspicion']
+        color = "red" if susp > 0.7 else "orange" if susp > 0.4 else "green"
+        st.markdown(f"**Nível de Suspeita:** :{color}[{susp*100:.0f}%]")
+        st.progress(susp)
+        st.write(f"**Estado:** `{st.session_state.blackboard['deal_state']}`")
+        if st.button("Reiniciar Conversa"):
             del st.session_state.blackboard
             st.rerun()
 
-    st.title("🚇 Estação Roosevelt Island - NYCS")
-    st.caption("Harry Sato está encostado em um painel de anúncios, observando as catracas.")
+    st.title("🚇 Roosevelt Island Station")
+    st.caption("Harry Sato está parado perto de um telefone público quebrado, observando você por trás de óculos digitais.")
 
-    # Chat UI
     if "messages_ui" not in st.session_state:
         st.session_state.messages_ui = []
 
-    for msg in st.session_state.messages_ui:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+    # Exibição do Histórico
+    for m in st.session_state.messages_ui:
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
 
-    if prompt := st.chat_input("Fale com Harry..."):
+    # Condição de Fim de Execução (Exit Nodes)
+    if st.session_state.blackboard["deal_state"] == "CLOSED":
+        st.success("✅ Venda concluída. Harry desapareceu na multidão.")
+        st.stop()
+    if st.session_state.blackboard["deal_state"] == "BURNED":
+        st.error("🚨 Harry se sentiu ameaçado e bloqueou você. Conexão encerrada.")
+        st.stop()
+
+    # Input do Usuário
+    if prompt := st.chat_input("Diga algo..."):
         st.session_state.messages_ui.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            response = generate_harry_response(prompt)
-            st.markdown(response)
-            st.session_state.messages_ui.append({"role": "assistant", "content": response})
+            answer = generate_harry_response(prompt)
+            st.markdown(answer)
+            st.session_state.messages_ui.append({"role": "assistant", "content": answer})
+            st.rerun() # Necessário para atualizar os Exit Nodes no topo do loop
 
 if __name__ == "__main__":
     main()
