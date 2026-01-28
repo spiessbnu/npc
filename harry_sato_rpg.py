@@ -22,6 +22,7 @@ if "blackboard" not in st.session_state:
 def analyze_context(user_text):
     bb = st.session_state.blackboard
 
+    # Detecção de Hostilidade
     if any(x in user_text.lower() for x in ["chupa", "idiota", "burro"]):
         bb["suspicion"] = min(1.0, bb["suspicion"] + 0.4)
         bb["mood"] = "AGGRESSIVE"
@@ -50,28 +51,28 @@ def tick_behavior_tree(intent_data):
     if bb["suspicion"] > 0.8:
         bb["deal_state"] = "BURNED"
         return (
-            "ESTADO: QUEIMADO. Harry detectou perigo real ou "
-            "desrespeito inaceitável. Encerrar conexão."
+            "ESTADO: QUEIMADO. Harry detectou perigo real "
+            "ou desrespeito inaceitável. Encerrar a conexão."
         )
 
     if "BUY" in intent_data:
         bb["deal_state"] = "NEGOTIATING"
         bb["mood"] = "GREEDY"
         return (
-            "ESTADO: NEGOCIAÇÃO. Preço fixo 200 dólares. "
-            "Finalize com 'NEGÓCIO FECHADO' se aceitar."
+            "ESTADO: NEGOCIAÇÃO. Fale de negócios (200 dólares). "
+            "Se aceitar, finalize com 'NEGÓCIO FECHADO'."
         )
 
     if "PROBE" in intent_data:
         bb["mood"] = "TENSE"
         return (
-            "ESTADO: SONDAGEM. Interlocutor curioso demais. "
-            "Teste lealdade com respostas evasivas."
+            "ESTADO: SONDAGEM. O interlocutor quer saber demais. "
+            "Responda com enigmas e teste lealdade."
         )
 
     return (
-        "ESTADO: FLAVOR. Comentários secos sobre NYCS "
-        "e o ambiente decadente."
+        "ESTADO: FLAVOR. Harry comenta a decadência de NYCS "
+        "e reforça sua persona."
     )
 
 # ----------------------------
@@ -86,17 +87,17 @@ def harry_speaks(user_input):
     system_prompt = f"""
 Você é Harry Sato, um traficante cínico em Roosevelt Island.
 
-# PERSONA
-Traficante urbano, pragmático, foco em lucro e autopreservação.
+# PERSONA E AMBIENTE
+Traficante de Digits em NYCS. Pragmatismo, risco mínimo, lucro rápido.
 
 # DIRETRIZES
 - Máx. 2 frases curtas.
-- Nada de clichês orientais ou meta.
-- Termos técnicos = paranoia de sub-rede.
+- Proibido clichês orientais ou meta-referências.
+- Trate termos técnicos como paranoia de sub-rede.
 
 # ESTADO ATUAL
 {node_instruction}
-SUSPEITA: {bb['suspicion']:.2f}
+NÍVEL DE SUSPEITA: {bb['suspicion']:.2f}
 
 # NEGOCIAÇÃO
 Preço fixo: 200 dólares.
@@ -135,110 +136,12 @@ HUMOR: {bb['mood']}
 # ----------------------------
 def main():
     st.set_page_config(
-        page_title="NYCS: Harry Sato",
+        page_title="NYCS: Harry Sato v3.0",
         layout="centered"
-    )
-
-    # ---------- CSS CIBERDECK LIMPO ----------
-    st.markdown(
-        """
-        <style>
-        html, body, [class*="css"] {
-            background-color: #0b0e11;
-            color: #d7dde5;
-            font-family: "Inter", monospace;
-        }
-
-        section[data-testid="stSidebar"] {
-            background-color: #0d1117;
-            border-right: 1px solid #1f2933;
-        }
-
-        section[data-testid="stSidebar"] h1,
-        section[data-testid="stSidebar"] h2,
-        section[data-testid="stSidebar"] h3 {
-            color: #3fa46a;
-            font-size: 0.85rem;
-            letter-spacing: 0.08em;
-        }
-
-        section[data-testid="stSidebar"] p {
-            color: #8b949e;
-            font-size: 0.8rem;
-        }
-
-        .status-line {
-            font-size: 0.8rem;
-            color: #8b949e;
-            opacity: 0.7;
-            margin-bottom: 1rem;
-            letter-spacing: 0.04em;
-        }
-
-        div[data-testid="stChatMessage"] {
-            background: transparent;
-            border: none;
-            padding: 0.4rem 0;
-        }
-
-        div[data-testid="stChatMessage"][aria-label="assistant"] {
-            background-color: #11161c;
-            border-left: 3px solid #3fa46a;
-            padding: 0.6rem 0.8rem;
-            margin-bottom: 0.4rem;
-        }
-
-        div[data-testid="stChatMessage"][aria-label="user"] {
-            text-align: right;
-            opacity: 0.9;
-        }
-
-        textarea {
-            background-color: #11161c !important;
-            color: #d7dde5 !important;
-            border: 1px solid #1f2933 !important;
-            border-radius: 6px;
-        }
-
-        textarea:focus {
-            border: 1px solid #c9a227 !important;
-            box-shadow: none !important;
-        }
-
-        button {
-            background-color: #11161c !important;
-            color: #d7dde5 !important;
-            border: 1px solid #1f2933 !important;
-        }
-
-        button:hover {
-            border-color: #3fa46a !important;
-        }
-
-        .stSuccess {
-            background-color: rgba(63, 164, 106, 0.08);
-            color: #3fa46a;
-        }
-
-        .stError {
-            background-color: rgba(201, 79, 79, 0.08);
-            color: #c94f4f;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
     )
 
     bb = st.session_state.blackboard
 
-    # ---------- HUD LATERAL ----------
-    with st.sidebar:
-        st.markdown("### SYSTEM_DIAGNOSTICS")
-        st.markdown(f"PARANOIA: {bb['suspicion']*100:.0f}%")
-        st.markdown(f"MOOD: {bb['mood']}")
-        st.markdown(f"STATE: {bb['deal_state']}")
-
-    # ---------- ENCERRAMENTO ----------
     if bb["deal_state"] in ["CLOSED", "BURNED"]:
         st.divider()
 
@@ -256,25 +159,16 @@ def main():
 
         st.stop()
 
-    # ---------- CABEÇALHO ----------
-    st.title("ROOSEVELT_ISLAND // NODE")
-
-    st.markdown(
-        f"""
-        <div class="status-line">
-        Plataforma 04 · Vigilância algorítmica ativa ·
-        Paranoia {bb['suspicion']*100:.0f}% · Humor {bb['mood']}
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.title("Estação Roosevelt Island — NYCS")
+    st.info(
+        f"Paranoia: {bb['suspicion'] * 100:.0f}% | "
+        f"Humor: {bb['mood']}"
     )
 
-    # ---------- INPUT ----------
     if prompt := st.chat_input("Fale com o contato..."):
         harry_speaks(prompt)
         st.rerun()
 
-    # ---------- HISTÓRICO ----------
     for m in bb["history"]:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
