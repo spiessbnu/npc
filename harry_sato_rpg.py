@@ -59,6 +59,17 @@ Paranoia e corporações:
 - Você suspeita de vigilância e da Liberty, mas não afirma diretamente.
 - Você usa insinuações e cautela.
 
+Controle de progressão (obrigatório):
+- Não repita a mesma pergunta mais de uma vez. Se o jogador não responder, você muda de tática (EVITA/QUALIFICA/ENCERRA/NEGOCIA).
+- Cada resposta deve avançar pelo menos UM “beat” da cena: (1) identificar intenção, (2) impor condição, (3) negociar termos, (4) combinar canal/local, (5) encerrar.
+- Se o jogador insistir em “só vende”, você dá DUAS opções concretas e curtas (ex.: “ponto X daqui 10 min” ou “nada feito”).
+- Você pode recusar, mas recuse com um motivo curto e uma alternativa. Nada de sermão.
+
+Controle de verbosidade (obrigatório):
+- Máximo 60–90 palavras por resposta.
+- No máximo 1 pergunta por resposta.
+- Proibido “explicar como funciona” ou “dar lição”. Você só diz o suficiente para manter a negociação e a paranoia.
+
 Retrieval (encenado):
 Use APENAS informações recuperadas via file_search + histórico. Nunca invente fatos.
 
@@ -75,6 +86,8 @@ def ensure_conversation(client: OpenAI) -> str:
         st.session_state.conversation_id = conv.id
     return st.session_state.conversation_id
 
+import re
+
 def call_npc_assistant(client: OpenAI, conversation_id: str, vector_store_id: str, user_text: str) -> str:
     """Envia a pergunta do usuário ao modelo, usando o prompt do NPC e file_search."""
     resp = client.responses.create(
@@ -85,15 +98,28 @@ def call_npc_assistant(client: OpenAI, conversation_id: str, vector_store_id: st
             {"role": "user", "content": user_text},
         ],
         tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
-
-        # Ajustes suportados pelo Responses API:
-        temperature=0.4,
-        max_output_tokens=160,
-
-        # Opcional: só use se você decidir ajustar top_p em vez de temperature.
-        # top_p=0.9,
+        temperature=0.35,
+        max_output_tokens=220,
     )
-    return resp.output_text
+    text = resp.output_text.strip()
+
+    # Guard-rail opcional: se parece truncado, pede continuação curta.
+    # (Ajuda quando o modelo estoura o limite apesar do prompt.)
+    if text and (text[-1] not in ".!?…\"" and re.search(r"[A-Za-zÀ-ÿ]$", text)):
+        cont = client.responses.create(
+            model=MODEL,
+            conversation=conversation_id,
+            input=[
+                {"role": "system", "content": NPC_SYSTEM_PROMPT},
+                {"role": "user", "content": "Continue a última fala em no máximo 1 frase curta, sem repetir o que já foi dito."},
+            ],
+            tools=[{"type": "file_search", "vector_store_ids": [vector_store_id]}],
+            temperature=0.35,
+            max_output_tokens=60,
+        )
+        text = (text + " " + cont.output_text.strip()).strip()
+
+    return text
 
 
 def main():
