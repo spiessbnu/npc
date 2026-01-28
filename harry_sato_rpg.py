@@ -3,175 +3,99 @@ import streamlit as st
 from openai import OpenAI
 
 # ----------------------------
-# 1. Configurações de Motor
+# 1. Motor e Configuração
 # ----------------------------
 MODEL = "gpt-4o-mini"
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 if "blackboard" not in st.session_state:
     st.session_state.blackboard = {
-        "suspicion": 0.1,
-        "mood": "NEUTRAL",      # NEUTRAL, TENSE, GREEDY, AGGRESSIVE
-        "deal_state": "IDLE",   # IDLE, NEGOTIATING, CLOSED, BURNED
+        "suspicion": 0.2,
+        "deal_state": "IDLE", # IDLE, NEGOTIATING, CLOSED, BURNED
         "history": []
     }
 
 # ----------------------------
-# 2. Sensor de Intenção Contextual
+# 2. Sensor de Perigo (Intent Parser Hardened)
 # ----------------------------
-def analyze_context(user_text):
+def analyze_danger(user_text):
     bb = st.session_state.blackboard
-
-    # Detecção de Hostilidade
-    if any(x in user_text.lower() for x in ["chupa", "idiota", "burro"]):
-        bb["suspicion"] = min(1.0, bb["suspicion"] + 0.4)
-        bb["mood"] = "AGGRESSIVE"
-        return "HOSTILE"
-
-    prompt = (
-        "Classifique a intenção (BUY, PROBE, TECH, CHAT) "
-        f"e a urgência (HIGH, LOW) do usuário: '{user_text}'"
-    )
-
-    resp = client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-        max_tokens=15
-    )
-
+    text = user_text.lower()
+    
+    # Gatilhos de interrupção imediata (Hardcoded para evitar alucinação do LLM)
+    perigo_imediato = ["polícia", "cop", "denunciar", "prender", "beijo", "sexo", "oral", "chupa"]
+    if any(p in text for p in perigo_imediato):
+        bb["suspicion"] = 1.0
+        bb["deal_state"] = "BURNED"
+        return "DANGER"
+    
+    prompt = f"Classifique a intenção (BUY, PROBE, CHAT): '{user_text}'"
+    resp = client.chat.completions.create(model=MODEL, messages=[{"role": "user", "content": prompt}], temperature=0, max_tokens=10)
     return resp.choices[0].message.content.strip().upper()
 
 # ----------------------------
-# 3. Behavior Tree
+# 3. Atuador de Voz (Foco em Brutalidade)
 # ----------------------------
-def tick_behavior_tree(intent_data):
+def harry_response(user_input):
     bb = st.session_state.blackboard
-
-    if bb["suspicion"] > 0.8:
-        bb["deal_state"] = "BURNED"
-        return (
-            "ESTADO: QUEIMADO. Harry detectou perigo real "
-            "ou desrespeito inaceitável. Encerrar a conexão."
-        )
-
-    if "BUY" in intent_data:
+    intent = analyze_danger(user_input)
+    
+    # Lógica de Instrução da Árvore
+    if bb["deal_state"] == "BURNED":
+        instruction = "ESTADO: FUGA. Você foi insultado ou ameaçado. Ofenda o cara e suma. Não negocie."
+    elif intent == "BUY":
         bb["deal_state"] = "NEGOTIATING"
-        bb["mood"] = "GREEDY"
-        return (
-            "ESTADO: NEGOCIAÇÃO. Fale de negócios (200 dólares). "
-            "Se aceitar, finalize com 'NEGÓCIO FECHADO'."
-        )
+        instruction = "ESTADO: NEGÓCIO. Preço fixo 200. Sem papo furado. Se ele aceitar, diga 'NEGÓCIO FECHADO'."
+    else:
+        instruction = "ESTADO: DESCONFIANÇA. Seja curto. Pergunte o que ele quer ou mande vazar."
 
-    if "PROBE" in intent_data:
-        bb["mood"] = "TENSE"
-        return (
-            "ESTADO: SONDAGEM. O interlocutor quer saber demais. "
-            "Responda com enigmas e teste lealdade."
-        )
-
-    return (
-        "ESTADO: FLAVOR. Harry comenta a decadência de NYCS "
-        "e reforça sua persona."
-    )
-
-# ----------------------------
-# 4. Atuador de Voz
-# ----------------------------
-def harry_speaks(user_input):
-    bb = st.session_state.blackboard
-
-    intent_info = analyze_context(user_input)
-    node_instruction = tick_behavior_tree(intent_info)
-
-    system_prompt = f"""
-Você é Harry Sato, um traficante cínico em Roosevelt Island.
-
-# PERSONA E AMBIENTE
-Traficante de Digits em NYCS. Pragmatismo, risco mínimo, lucro rápido.
-
-# DIRETRIZES
-- Máx. 2 frases curtas.
-- Proibido clichês orientais ou meta-referências.
-- Trate termos técnicos como paranoia de sub-rede.
-
-# ESTADO ATUAL
-{node_instruction}
-NÍVEL DE SUSPEITA: {bb['suspicion']:.2f}
-
-# NEGOCIAÇÃO
-Preço fixo: 200 dólares.
-Encerrar com "NEGÓCIO FECHADO" ao concluir.
-Encerrar com "FIM DA LINHA" se suspeita alta.
-
-# FALLBACK
-"Fala logo o que quer ou vaza."
-
-HUMOR: {bb['mood']}
-"""
+    # PROMPT DE RUA (v4.0)
+    system_prompt = f"""Você é Harry Sato, traficante em NYCS. 
+    ESTILO: Brutalmente curto. Máximo 15 palavras. 
+    PROIBIDO: Metáforas, poesias, conselhos morais ou palavras como 'ronin', 'sombra' ou 'labirinto'. 
+    Fale como um criminoso impaciente: 'Paga ou vaza'.
+    OBJETIVO: {instruction}"""
 
     messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(bb["history"][-4:])
+    messages.extend(bb["history"][-2:]) # Contexto curtíssimo para evitar verborragia
     messages.append({"role": "user", "content": user_input})
-
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        temperature=0.6
-    )
-
-    answer = response.choices[0].message.content
-
-    if any(x in answer.upper() for x in ["NEGÓCIO FECHADO", "FIM DA LINHA"]):
-        if bb["deal_state"] != "BURNED":
-            bb["deal_state"] = "CLOSED"
-
+    
+    answer = client.chat.completions.create(model=MODEL, messages=messages, temperature=0.5).choices[0].message.content
+    
+    if "NEGÓCIO FECHADO" in answer.upper() or "VAZA" in answer.upper() or bb["deal_state"] == "BURNED":
+        if bb["deal_state"] != "BURNED": bb["deal_state"] = "CLOSED"
+        
     bb["history"].append({"role": "user", "content": user_input})
     bb["history"].append({"role": "assistant", "content": answer})
-
     return answer
 
 # ----------------------------
-# 5. Interface Streamlit
+# 4. Interface com Travamento de Chat
 # ----------------------------
 def main():
-    st.set_page_config(
-        page_title="NYCS: Harry Sato v3.0",
-        layout="centered"
-    )
-
+    st.set_page_config(page_title="Harry Sato v4.0")
     bb = st.session_state.blackboard
 
     if bb["deal_state"] in ["CLOSED", "BURNED"]:
         st.divider()
-
         if bb["deal_state"] == "CLOSED":
-            st.success("MISSION ACCOMPLISHED: Transação concluída.")
+            st.success("✅ **MISSÃO CUMPRIDA**: Harry pegou o dinheiro e sumiu no túnel.")
         else:
-            st.error("MISSION FAILED: Contato perdido.")
-
-        for m in bb["history"]:
-            st.write(f"**{m['role'].capitalize()}:** {m['content']}")
-
-        if st.button("Nova Tentativa"):
+            st.error("🚨 **MISSÃO FALHOU**: Conexão cortada. Harry te marcou como 'problema'.")
+        
+        for m in bb["history"]: st.write(f"**{m['role'].capitalize()}:** {m['content']}")
+        if st.button("Tentar denovo"):
             del st.session_state.blackboard
             st.rerun()
-
         st.stop()
 
-    st.title("Estação Roosevelt Island — NYCS")
-    st.info(
-        f"Paranoia: {bb['suspicion'] * 100:.0f}% | "
-        f"Humor: {bb['mood']}"
-    )
-
-    if prompt := st.chat_input("Fale com o contato..."):
-        harry_speaks(prompt)
+    st.title("🚇 Roosevelt Island")
+    if prompt := st.chat_input("..."):
+        harry_response(prompt)
         st.rerun()
 
     for m in bb["history"]:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
+        with st.chat_message(m["role"]): st.write(m["content"])
 
 if __name__ == "__main__":
     main()
