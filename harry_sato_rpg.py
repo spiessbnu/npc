@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from openai import OpenAI
+import re
 
 # ----------------------------
 # 1. Configuração de Motor
