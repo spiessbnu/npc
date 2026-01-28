@@ -7,7 +7,7 @@ from openai import OpenAI
 # ----------------------------
 # Config
 # ----------------------------
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-5-mini"
 VECTOR_STORE_ID_DEFAULT = "vs_696e5b25f30081918c3ebf06a27cf520"
 
 BASE_DIR = os.path.dirname(__file__)
