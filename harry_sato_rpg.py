@@ -23,7 +23,7 @@ def analyze_context(user_text):
     bb = st.session_state.blackboard
 
     # Detecção de Hostilidade
-    if any(x in user_text.lower() for x in ["chupa", "idiota", "burro"]):
+    if any(x in user_text.lower() for x in ["chupa", "idiota", "burro", "imbecil"]):
         bb["suspicion"] = min(1.0, bb["suspicion"] + 0.4)
         bb["mood"] = "AGGRESSIVE"
         return "HOSTILE"
@@ -67,7 +67,7 @@ def tick_behavior_tree(intent_data):
         bb["mood"] = "TENSE"
         return (
             "ESTADO: SONDAGEM. O interlocutor quer saber demais. "
-            "Responda com enigmas e teste lealdade."
+            "Responda com comentários irônicos ou misteriosos e teste lealdade."
         )
 
     return (
@@ -111,7 +111,9 @@ Encerrar com "NEGÓCIO FECHADO" ao concluir.
 Encerrar com "FIM DA LINHA" se suspeita alta.
 
 # FALLBACK
-"Fala logo o que quer ou vaza."
+"Fala logo o que quer ou vaza." OU
+"Não tenho o dia todo, script kid." OU 
+"Vaza". 
 
 HUMOR: {bb['mood']}
 """
